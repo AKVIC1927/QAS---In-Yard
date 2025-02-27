@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIN Input Form</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsPDF/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+        #form-container {
+            position: relative;
+            display: inline-block;
+        }
+        #vin-form {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .vin-box, .extra-box {
+            position: absolute;
+            width: 80px;
+            height: 30px;
+            border: 1px solid #000;
+            text-align: center;
+            font-size: 16px;
+            background: white;
+        }
+        .locked {
+            pointer-events: none;
+            background-color: lightgray;
+        }
+    </style>
+</head>
+<body>
+    <h2>VIN Input Form</h2>
+    <button onclick="downloadPDF()">Download as PDF</button>
+    <button onclick="toggleDraggable()">Toggle Draggable</button>
+    <div id="form-container">
+        <img id="background" src="/mnt/data/AdesaForm.png" width="800">
+        <div id="vin-form"></div>
+    </div>
+    
+    <script>
+        $(document).ready(function () {
+            let vinContainer = $("#vin-form");
+            for (let i = 0; i < 17; i++) {
+                let input = $('<input type="text" maxlength="1" class="vin-box locked">');
+                input.css({ top: 50, left: i * 50 + 20 });
+                input.on("input", function () {
+                    if (this.value.length === 1) {
+                        $(this).next(".vin-box").focus();
+                    }
+                });
+                vinContainer.append(input);
+            }
+        });
+
+        function toggleDraggable() {
+            $(".vin-box, .extra-box").toggleClass("locked").draggable("option", "disabled", function () {
+                return $(this).hasClass("locked");
+            });
+        }
+
+        function downloadPDF() {
+            html2canvas(document.querySelector("#form-container")).then(canvas => {
+                let pdf = new jspdf.jsPDF();
+                let imgData = canvas.toDataURL("image/png");
+                pdf.addImage(imgData, "PNG", 10, 10, 190, 140);
+                pdf.save("vin_form.pdf");
+            });
+        }
+    </script>
+</body>
+</html>
