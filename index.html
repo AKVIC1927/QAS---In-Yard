@@ -60,10 +60,20 @@
                 });
                 vinContainer.append(input);
             }
+            
+            $(".vin-box, .extra-box").draggable({
+                containment: "#form-container",
+                disabled: true
+            }).resizable({
+                handles: "all",
+                disabled: true
+            });
         });
 
         function toggleDraggable() {
             $(".vin-box, .extra-box").toggleClass("locked").draggable("option", "disabled", function () {
+                return $(this).hasClass("locked");
+            }).resizable("option", "disabled", function () {
                 return $(this).hasClass("locked");
             });
         }
