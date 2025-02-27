@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VIN Input Form</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsPDF/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
     <style>
         body {
@@ -48,7 +48,7 @@
     </div>
     
     <script>
-        $(document).ready(function () {
+        $(function () {
             let vinContainer = $("#vin-form");
             for (let i = 0; i < 17; i++) {
                 let input = $('<input type="text" maxlength="1" class="vin-box locked">');
@@ -61,20 +61,23 @@
                 vinContainer.append(input);
             }
             
-            $(".vin-box, .extra-box").draggable({
-                containment: "#form-container",
-                disabled: true
-            }).resizable({
-                handles: "all",
-                disabled: true
+            $(".vin-box, .extra-box").each(function() {
+                $(this).draggable({
+                    containment: "#form-container",
+                    disabled: true
+                }).resizable({
+                    handles: "all",
+                    disabled: true
+                });
             });
         });
 
         function toggleDraggable() {
-            $(".vin-box, .extra-box").toggleClass("locked").draggable("option", "disabled", function () {
-                return $(this).hasClass("locked");
-            }).resizable("option", "disabled", function () {
-                return $(this).hasClass("locked");
+            $(".vin-box, .extra-box").each(function() {
+                let isLocked = $(this).hasClass("locked");
+                $(this).toggleClass("locked");
+                $(this).draggable("option", "disabled", isLocked);
+                $(this).resizable("option", "disabled", isLocked);
             });
         }
 
