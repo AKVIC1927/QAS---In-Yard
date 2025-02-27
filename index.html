@@ -3,91 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VIN Input Form</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <title>PDF Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.16.0/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
     <style>
-        body {
-            text-align: center;
-            font-family: Arial, sans-serif;
-        }
-        #form-container {
-            position: relative;
-            display: inline-block;
-        }
-        #vin-form {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        .vin-box, .extra-box {
-            position: absolute;
-            width: 80px;
-            height: 30px;
-            border: 1px solid #000;
-            text-align: center;
-            font-size: 16px;
-            background: white;
-        }
-        .locked {
-            pointer-events: none;
-            background-color: lightgray;
-        }
+        canvas { border: 1px solid black; width: 100%; height: auto; }
+        .draggable { position: absolute; cursor: move; background: yellow; padding: 5px; border-radius: 3px; }
     </style>
 </head>
 <body>
-    <h2>VIN Input Form</h2>
-    <button onclick="downloadPDF()">Download as PDF</button>
-    <button onclick="toggleDraggable()">Toggle Draggable</button>
-    <div id="form-container">
-        <img id="background" src="AdesaForm.png" width="800">
-        <div id="vin-form"></div>
-    </div>
-    
+    <h2>Adjust VIN & Bid Amount Positions</h2>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <button onclick="generatePDF()">Generate PDF</button>
+    <br>
+    <canvas id="pdfCanvas"></canvas>
+    <div id="vin" class="draggable">VIN: 1HGCM82633A123456</div>
+    <div id="bid" class="draggable">Bid: $15,000</div>
+
     <script>
-        $(function () {
-            let vinContainer = $("#vin-form");
-            for (let i = 0; i < 17; i++) {
-                let input = $('<input type="text" maxlength="1" class="vin-box locked">');
-                input.css({ top: 50, left: i * 50 + 20 });
-                input.on("input", function () {
-                    if (this.value.length === 1) {
-                        $(this).next(".vin-box").focus();
+        let canvas = document.getElementById("pdfCanvas");
+        let ctx = canvas.getContext("2d");
+        let vinDiv = document.getElementById("vin");
+        let bidDiv = document.getElementById("bid");
+        let pdfDoc = null;
+        let pdfScale = 1.5;
+
+        function makeDraggable(element) {
+            element.onmousedown = function (event) {
+                let shiftX = event.clientX - element.getBoundingClientRect().left;
+                let shiftY = event.clientY - element.getBoundingClientRect().top;
+                function moveAt(pageX, pageY) {
+                    element.style.left = pageX - shiftX + "px";
+                    element.style.top = pageY - shiftY + "px";
+                }
+                function onMouseMove(event) {
+                    moveAt(event.pageX, event.pageY);
+                }
+                document.addEventListener("mousemove", onMouseMove);
+                element.onmouseup = function () {
+                    document.removeEventListener("mousemove", onMouseMove);
+                    element.onmouseup = null;
+                };
+            };
+            element.ondragstart = function () { return false; };
+        }
+        makeDraggable(vinDiv);
+        makeDraggable(bidDiv);
+
+        document.getElementById("pdfUpload").addEventListener("change", async function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = async function () {
+                    if (typeof pdfjsLib === "undefined") {
+                        console.error("pdfjsLib is not loaded properly.");
+                        return;
                     }
-                });
-                vinContainer.append(input);
+                    const loadingTask = pdfjsLib.getDocument({ data: reader.result });
+                    pdfDoc = await loadingTask.promise;
+                    const page = await pdfDoc.getPage(1);
+                    const viewport = page.getViewport({ scale: pdfScale });
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const renderContext = { canvasContext: ctx, viewport: viewport };
+                    await page.render(renderContext);
+                };
             }
-            
-            $(".vin-box, .extra-box").each(function() {
-                $(this).draggable({
-                    containment: "#form-container",
-                    disabled: true
-                }).resizable({
-                    handles: "all",
-                    disabled: true
-                });
-            });
         });
 
-        function toggleDraggable() {
-            $(".vin-box, .extra-box").each(function() {
-                let isLocked = $(this).hasClass("locked");
-                $(this).toggleClass("locked");
-                $(this).draggable("option", "disabled", isLocked);
-                $(this).resizable("option", "disabled", isLocked);
-            });
-        }
-
-        function downloadPDF() {
-            html2canvas(document.querySelector("#form-container")).then(canvas => {
-                let pdf = new jspdf.jsPDF();
-                let imgData = canvas.toDataURL("image/png");
-                pdf.addImage(imgData, "PNG", 10, 10, 190, 140);
-                pdf.save("vin_form.pdf");
-            });
+        async function generatePDF() {
+            if (!pdfDoc) {
+                alert("Please upload a PDF first.");
+                return;
+            }
+            const { PDFDocument } = PDFLib;
+            let newPdf = await PDFDocument.create();
+            let copiedPage = await newPdf.copyPages(pdfDoc, [0]);
+            let page = copiedPage[0];
+            newPdf.addPage(page);
+            let vinX = parseInt(vinDiv.style.left) || 50;
+            let vinY = canvas.height - (parseInt(vinDiv.style.top) || 200);
+            let bidX = parseInt(bidDiv.style.left) || 300;
+            let bidY = canvas.height - (parseInt(bidDiv.style.top) || 400);
+            page.drawText(vinDiv.innerText, { x: vinX, y: vinY, size: 16 });
+            page.drawText(bidDiv.innerText, { x: bidX, y: bidY, size: 16 });
+            const pdfBytes = await newPdf.save();
+            let blob = new Blob([pdfBytes], { type: "application/pdf" });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "Adesa_filled.pdf";
+            link.click();
         }
     </script>
 </body>
