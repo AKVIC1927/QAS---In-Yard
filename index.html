@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PDF Form Editor + Full VIN + All Features</title>
+  <title>Adesa Form</title>
 
   <!-- pdf-lib from CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.11.1/pdf-lib.min.js"></script>
@@ -1011,14 +1011,15 @@ async function downloadPDF() {
         // Loop through all input fields and place them correctly
         allBoxes.forEach(box => {
             let textValue = "";
+
             if (box.tagName === "INPUT") {
                 if (box.dataset.type === "checkbox" && box.checked) {
                     textValue = "X"; // Mark checkbox if checked
                 } else {
-                    textValue = box.value || "";
+                    textValue = (box.value || "").toUpperCase(); // Convert text input to uppercase
                 }
             } else {
-                textValue = box.textContent || "";
+                textValue = (box.textContent || "").toUpperCase(); // Convert non-inputs to uppercase
             }
 
             // Get the actual position on screen (resized)
@@ -1070,8 +1071,7 @@ async function downloadPDF() {
         console.error("PDF generation error:", err);
         alert("Error generating PDF. Check console for details.");
     }
-}
-  
+} 
 </script>
 </body>
 </html>
