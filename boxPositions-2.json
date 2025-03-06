@@ -255,10 +255,10 @@
     {
       "id": "box-19",
       "name": "Photo",
-      "left": 642,
-      "top": 860,
+      "left": 810.7625296,
+      "top": 1094.464719,
       "width": 36.00000010630759,
-      "height": 23.6875,
+      "height": 27.6875,
       "type": "checkbox",
       "fontSize": 36.00000010630759,
       "value": "true"
