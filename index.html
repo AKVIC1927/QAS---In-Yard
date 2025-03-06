@@ -1,101 +1,1077 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Editor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.16.0/pdf-lib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.3.1/fabric.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-    <style>
-        canvas { border: 1px solid black; width: 100%; height: auto; }
-        .draggable { position: absolute; cursor: move; background: yellow; padding: 5px; border-radius: 3px; }
-    </style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDF Form Editor + Full VIN + All Features</title>
+
+  <!-- pdf-lib from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.11.1/pdf-lib.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+    }
+    body {
+      display: flex;
+      gap: 20px;
+    }
+
+    /* Control panel */
+    #control-panel {
+      width: 300px;
+      padding: 10px;
+      border: 1px solid #333;
+      background: #f9f9f9;
+    }
+    label, select, input, button {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    /* Reorder modal & overlay */
+    #overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9998;
+      display: none;
+    }
+    #reorder-modal {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px;
+      padding: 15px;
+      border: 2px solid #000;
+      background: #fff;
+      z-index: 9999;
+      display: none;
+    }
+    #reorder-modal h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    #reorder-select {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+
+    #form-container {
+  position: relative;
+  width: 90vw; /* Scale based on viewport width */
+  max-width: 1545px; /* Prevent from going beyond the original */
+  height: auto;
+  aspect-ratio: 1545 / 2000; /* Keep the original aspect ratio */
+  border: 1px solid #333;
+  background: url('AdesaForm.png') no-repeat center top;
+  background-size: contain;
+  background-color: #ffffff00;
+}
+
+    /* Draggable boxes */
+    .draggable {
+      position: absolute;
+      cursor: move; /* Only if editMode is true in code */
+    }
+    .selected {
+      outline: 3px solid blue;
+    }
+
+    /* Common box styles */
+    .vin-box, .custom-box {
+      border: 2px solid red;
+      background: rgba(255, 0, 0, 0.1);
+      text-align: center;
+      text-transform: uppercase;
+      position: absolute;
+      font-size: 18px;
+    }
+
+    /* Checkbox styling */
+    [type="checkbox"]:not(:checked),
+    [type="checkbox"]:checked {
+      position: absolute;
+      left: -9999px;
+    }
+    [type="checkbox"]:not(:checked) + label,
+    [type="checkbox"]:checked + label {
+      position: relative;
+      padding-left: 0px;
+      cursor: pointer;
+      margin-bottom: 0px;
+      display: inline-block;
+      font-size: 0px;
+    }
+    [type="checkbox"]:not(:checked) + label:before,
+    [type="checkbox"]:checked + label:before {
+      content: '';
+      position: absolute;
+      left: 0px; top: 0px;
+      width: 24px; height: 24px;
+      border: 3px solid #000000;
+      background: #ffffff;
+      border-radius: 4px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,.1);
+    }
+    [type="checkbox"]:not(:checked) + label:after,
+    [type="checkbox"]:checked + label:after {
+      content: '✔';
+      position: absolute;
+      top: 0px; left: 3px;
+      font-size: 36px;
+      line-height: 0.5;
+      color: #000000;
+      transition: all .2s;
+    }
+    [type="checkbox"]:not(:checked) + label:after {
+      opacity: 0;
+      transform: scale(0);
+    }
+    [type="checkbox"]:checked + label:after {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+
+    #downloadpdf{
+      margin-top: 10px;
+      margin-bottom: 10px;
+      appearance: none;
+      background-color: #FFFFFF;
+      border-radius: 40em;
+      border-style: none;
+      box-shadow: #ADCFFF 0 -12px 6px inset;
+      box-sizing: border-box;
+      color: #000000;
+      cursor: pointer;
+      display: inline-block;
+      font-family: -apple-system,sans-serif;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: -.24px;
+      outline: none;
+      padding: 0.6rem 0.9rem;
+      quotes: auto;
+      text-align: center;
+      text-decoration: none;
+      transition: all .15s;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    #downloadpdf:hover {
+      background-color: #FFC229;
+      box-shadow: #FF6314 0 -6px 8px inset;
+      transform: scale(1.125);
+    }
+
+    #downloadpdf:active {
+      transform: scale(1.025);
+    }
+    
+
+  </style>
 </head>
+
 <body>
-    <h2>Adjust VIN & Bid Amount Positions</h2>
-    <input type="file" id="pdfUpload" accept="application/pdf">
-    <button onclick="generatePDF()">Generate PDF</button>
-    <br>
-    <canvas id="pdfCanvas"></canvas>
-    <div id="vin" class="draggable">VIN: 1HGCM82633A123456</div>
-    <div id="bid" class="draggable">Bid: $15,000</div>
+<!-- Control Panel -->
+<div id="control-panel">
+  <h3>Layout Controls</h3>
 
-    <script>
-        let canvas = document.getElementById("pdfCanvas");
-        let ctx = canvas.getContext("2d");
-        let vinDiv = document.getElementById("vin");
-        let bidDiv = document.getElementById("bid");
-        let pdfDoc = null;
-        let pdfScale = 1.5;
+  <button id="downloadpdf" onclick="downloadPDF()">Download PDF</button>
+    <!-- "Full VIN" input and button -->
+    <label for="full-vin-input">Full VIN (17 chars max):</label>
+    <input type="text" id="full-vin-input" maxlength="17" />
+    <button onclick="fillVinBoxes()">Apply VIN</button>
 
-        function makeDraggable(element) {
-            element.onmousedown = function (event) {
-                let shiftX = event.clientX - element.getBoundingClientRect().left;
-                let shiftY = event.clientY - element.getBoundingClientRect().top;
-                function moveAt(pageX, pageY) {
-                    element.style.left = pageX - shiftX + "px";
-                    element.style.top = pageY - shiftY + "px";
-                }
-                function onMouseMove(event) {
-                    moveAt(event.pageX, event.pageY);
-                }
-                document.addEventListener("mousemove", onMouseMove);
-                element.onmouseup = function () {
-                    document.removeEventListener("mousemove", onMouseMove);
-                    element.onmouseup = null;
-                };
-            };
-            element.ondragstart = function () { return false; };
+    <h3>Edit Boxes</h3>
+    <button id="toggle-edit-btn" onclick="toggleEditMode()">Enable Edit Mode</button>
+  
+
+
+
+  <h3>Box Properties</h3>
+  <label for="box-selector">Select Box:</label>
+  <select id="box-selector" onchange="updateSizeInputs()">
+    <option value="all-boxes">All Boxes</option>
+    <option value="vin-boxes">VIN Boxes</option>
+  </select>
+  <button onclick="openReorderModal()">Reorder Boxes</button>
+
+  <label for="box-name">Box Name:</label>
+  <input type="text" id="box-name"/>
+
+  <label for="box-type">Box Type:</label>
+  <select id="box-type">
+    <option value="text">Text</option>
+    <option value="number">Number</option>
+    <option value="currency">Currency</option>
+    <option value="checkbox">Checkbox</option>
+    <option value="vin">VIN</option>
+  </select>
+
+  <label for="font-size">Font Size:</label>
+  <input type="number" id="font-size" min="10" max="100" value="18" />
+
+  <label>Left:
+    <input type="number" id="left-input" min="0"/>
+    <input type="checkbox" id="toggle-left" checked/> Apply to All
+  </label>
+  <label>Top:
+    <input type="number" id="top-input" min="0"/>
+    <input type="checkbox" id="toggle-top" checked/> Apply to All
+  </label>
+  <label>Width:
+    <input type="number" id="width-input" min="10"/>
+  </label>
+  <label>Height:
+    <input type="number" id="height-input" min="10"/>
+  </label>
+  <label>Move Left/Right by:
+    <input type="number" id="move-left" value="0"/>
+  </label>
+  <label>Move Up/Down by:
+    <input type="number" id="move-top" value="0"/>
+  </label>
+
+  <button onclick="saveBoxPositionsToLocalStorage()">Save</button>
+  <button onclick="saveBoxPositions()">Save & Download JSON</button>
+  <button onclick="addBox()">Add Box</button>
+  <button onclick="deleteBox()">Delete Box</button>
+  <button onclick="deleteAllSelected()">Delete Selected</button>
+
+  <button id="reset-default-btn">Reset to Default</button>
+  <button onclick="downloadLayout()">Download Layout</button>
+  <label>Load Layout:
+    <input type="file" accept=".json" onchange="loadLayoutFromFile(event)" />
+  </label>
+</div>
+
+<!-- Reorder Modal & Overlay -->
+<div id="overlay"></div>
+<div id="reorder-modal">
+  <h3>Reorder Boxes</h3>
+  <select id="reorder-select" size="8"></select>
+  <button onclick="moveReorderOptionUp()">↑ Move Up</button>
+  <button onclick="moveReorderOptionDown()">↓ Move Down</button>
+  <button onclick="applyReorderChanges()">Done</button>
+</div>
+
+<!-- Main Container -->
+<div id="form-container"></div>
+
+<script>
+  /********************************************************************
+   * Global Vars
+   ********************************************************************/
+  let defaultLayout = [];     // we'll fetch from boxPositions-2.json
+  let editMode = false;       // locked by default
+  const vinBoxes = [];
+  const allBoxes = [];
+  const selectedBoxes = [];
+
+  // DOM references
+  const formContainer = document.getElementById("form-container");
+  const boxSelector   = document.getElementById("box-selector");
+  const boxNameInput  = document.getElementById("box-name");
+  const boxTypeSelect = document.getElementById("box-type");
+  const leftInput     = document.getElementById("left-input");
+  const topInput      = document.getElementById("top-input");
+  const widthInput    = document.getElementById("width-input");
+  const heightInput   = document.getElementById("height-input");
+  const moveLeft      = document.getElementById("move-left");
+  const moveTop       = document.getElementById("move-top");
+  const toggleLeft    = document.getElementById("toggle-left");
+  const toggleTop     = document.getElementById("toggle-top");
+  const fontSizeInput = document.getElementById("font-size");
+
+  const reorderModal  = document.getElementById("reorder-modal");
+  const reorderSelect = document.getElementById("reorder-select");
+  const overlay       = document.getElementById("overlay");
+
+  /********************************************************************
+   * On Page Load => fetch default JSON or localStorage
+   ********************************************************************/
+  
+   window.onload = async () => {
+    // 1) fetch boxPositions-2.json for default
+    try {
+      const resp = await fetch("./boxPositions-2.json");
+      defaultLayout = await resp.json();
+      console.log("Default layout from boxPositions-2.json:", defaultLayout);
+    } catch(err) {
+      console.error("Error fetching boxPositions-2.json:", err);
+      alert("Could not load boxPositions-2.json. Make sure you're running a local server.");
+      defaultLayout = []; // fallback
+    }
+
+    // 2) If localStorage has a layout, use it, else use default
+    const saved = localStorage.getItem("boxPositions");
+    if (saved) {
+      console.log("Using saved layout from localStorage");
+      loadBoxPositionsFromData(JSON.parse(saved));
+    } else {
+      console.log("Using default layout from boxPositions-2.json");
+      loadBoxPositionsFromData(defaultLayout);
+    }
+  };
+
+  /********************************************************************
+   * Creating boxes from data
+   ********************************************************************/
+  async function loadBoxPositionsFromData(boxData) {
+    // Clear old DOM + arrays
+    allBoxes.length=0;
+    vinBoxes.length=0;
+    formContainer.innerHTML="";
+    boxSelector.innerHTML=`
+      <option value="all-boxes">All Boxes</option>
+      <option value="vin-boxes">VIN Boxes</option>
+    `;
+
+    boxData.forEach(d => createBoxFromJSON(d));
+  }
+
+  function createBoxFromJSON(d) {
+    const el = document.createElement("input");
+    el.id = d.id;
+    el.dataset.name = d.name;
+    el.dataset.type = d.type;
+
+    // Get actual container size (resized dynamically)
+    const containerWidth = formContainer.clientWidth;
+    const containerHeight = formContainer.clientHeight;
+
+    // Original form size
+    const originalWidth = 1545;
+    const originalHeight = 2000;
+
+    // Calculate the scale factor to match the form
+    const scaleFactor = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
+
+    // Apply positions and sizes
+    el.style.textTransform = "uppercase";
+    el.style.position = "absolute";
+    el.style.left = `${d.left * scaleFactor}px`;
+    el.style.top = `${d.top * scaleFactor}px`;
+    el.style.width = `${d.width * scaleFactor}px`;
+    el.style.height = `${d.height * scaleFactor}px`;
+    el.style.fontSize = `${(d.fontSize || 18) * scaleFactor}px`;
+
+    // ✅ Apply styles dynamically from JSON
+    el.style.backgroundColor = d.backgroundColor || "rgba(255, 255, 255, 0.5)"; // Default transparent white
+    el.style.border = d.border || "2px solid red"; // Default red border
+    el.style.color = d.textColor || "black"; // Default text color
+
+      // If it's a checkbox, set el.type = "checkbox". Otherwise text, vin, etc.
+  if (d.type === "checkbox") {
+    el.type = "checkbox";
+  } else {
+    el.type = "text";
+  }
+
+  // (A) Here’s where we apply the "value" field
+  if (typeof d.value !== "undefined") {
+    if (d.type === "checkbox") {
+      // If your JSON uses "X" or "true" to indicate checked:
+      el.checked = (d.value === "X" || d.value === "true");
+    } else {
+      // For text fields, VIN, number, currency, etc.
+      el.value = d.value;
+    }
+  }
+
+
+    formContainer.appendChild(el);
+    allBoxes.push(el);
+
+    // If VIN => single char logic
+    if (d.type==="vin") {
+      vinBoxes.push(el);
+      initVinBoxInput(el);
+    }
+    attachFormattingListener(el);
+
+    // Add an <option> in the boxSelector
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = d.name;
+    boxSelector.appendChild(opt);
+
+    // Single/multi select
+    el.addEventListener("click",(e)=>{
+      if(e.ctrlKey|| e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleBoxSelection(el);
+      } else {
+        singleSelectBox(el);
+        selectBox(el.id);
+      }
+    });
+
+    makeDraggable(el);
+  }
+
+
+  window.addEventListener("resize", () => {
+    loadBoxPositionsFromData(defaultLayout);
+});
+
+  /********************************************************************
+   * VIN Single-Char + Backspace logic
+   ********************************************************************/
+   function initVinBoxInput(box) {
+    let oldValue = box.value || "";
+
+    // Enforce single-character input for VIN boxes
+    box.addEventListener("input", () => {
+        if (box.dataset.type !== "vin") return;
+        if (box.value.length > 1) box.value = box.value[0];
+        const idx = vinBoxes.indexOf(box);
+
+        // ✅ Automatically move to next VIN box when typing
+        if (oldValue.length === 0 && box.value.length === 1) {
+            const nxt = vinBoxes[idx + 1];
+            if (nxt) nxt.focus();
         }
-        makeDraggable(vinDiv);
-        makeDraggable(bidDiv);
+        // ✅ Automatically move back when deleting
+        else if (oldValue.length === 1 && box.value.length === 0) {
+            const prev = vinBoxes[idx - 1];
+            if (prev) prev.focus();
+        }
+        oldValue = box.value;
+    });
 
-        document.getElementById("pdfUpload").addEventListener("change", async function (event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.readAsArrayBuffer(file);
-                reader.onload = async function () {
-                    if (typeof pdfjsLib === "undefined") {
-                        console.error("pdfjsLib is not loaded properly.");
-                        return;
-                    }
-                    const loadingTask = pdfjsLib.getDocument({ data: reader.result });
-                    pdfDoc = await loadingTask.promise;
-                    const page = await pdfDoc.getPage(1);
-                    const viewport = page.getViewport({ scale: pdfScale });
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-                    const renderContext = { canvasContext: ctx, viewport: viewport };
-                    await page.render(renderContext);
-                };
+    // ✅ If empty, backspace will delete and move back
+    box.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && box.value.length === 0) {
+            e.preventDefault();
+            const idx = vinBoxes.indexOf(box);
+            const prev = vinBoxes[idx - 1];
+            if (prev) {
+                prev.focus();
+                prev.value = "";
             }
+        }
+    });
+}
+
+
+  /********************************************************************
+   * Full VIN input => fillVinBoxes
+   ********************************************************************/
+  function fillVinBoxes() {
+    const vin = document.getElementById("full-vin-input").value;
+    // Place up to vin.length chars in each VIN box
+    for (let i=0; i<vinBoxes.length; i++) {
+      if(i < vin.length) {
+        vinBoxes[i].value= vin[i];
+      } else {
+        vinBoxes[i].value= "";
+      }
+    }
+  }
+
+  /********************************************************************
+   * Draggable, respecting editMode
+   ********************************************************************/
+  function makeDraggable(el) {
+    el.onpointerdown=(e)=>{
+      if(!editMode) return;
+      const rect= formContainer.getBoundingClientRect();
+      let shiftX= e.clientX- el.getBoundingClientRect().left;
+      let shiftY= e.clientY- el.getBoundingClientRect().top;
+
+      function moveAt(pageX, pageY) {
+        const scrollX= window.pageXOffset || document.documentElement.scrollLeft;
+        const scrollY= window.pageYOffset || document.documentElement.scrollTop;
+        let newLeft= pageX - shiftX - (rect.left + scrollX);
+        let newTop = pageY - shiftY - (rect.top  + scrollY);
+        el.style.left= newLeft+"px";
+        el.style.top = newTop +"px";
+      }
+      function onPointerMove(ev){ moveAt(ev.pageX, ev.pageY);}
+      document.addEventListener("pointermove", onPointerMove);
+      document.onpointerup=()=>{
+        document.removeEventListener("pointermove", onPointerMove);
+        document.onpointerup=null;
+      };
+    };
+    el.ondragstart=()=>false;
+  }
+
+  /********************************************************************
+   * Single / Multi Selection
+   ********************************************************************/
+  function singleSelectBox(box) {
+    selectedBoxes.forEach(b=>b.classList.remove("selected"));
+    selectedBoxes.length=0;
+    box.classList.add("selected");
+    selectedBoxes.push(box);
+  }
+  function toggleBoxSelection(box) {
+    const idx= selectedBoxes.indexOf(box);
+    if(idx>=0) {
+      box.classList.remove("selected");
+      selectedBoxes.splice(idx,1);
+    } else {
+      box.classList.add("selected");
+      selectedBoxes.push(box);
+    }
+  }
+  function deleteAllSelected() {
+    if(selectedBoxes.length===0) {
+      alert("No boxes selected!");
+      return;
+    }
+    selectedBoxes.forEach(box=>{
+      box.remove();
+      // remove from allBoxes
+      const idxAll= allBoxes.indexOf(box);
+      if(idxAll>=0) allBoxes.splice(idxAll,1);
+      // remove from vinBoxes
+      const idxVin= vinBoxes.indexOf(box);
+      if(idxVin>=0) vinBoxes.splice(idxVin,1);
+
+      // remove from <select>
+      const opt= boxSelector.querySelector(`option[value="${box.id}"]`);
+      if(opt) opt.remove();
+    });
+    selectedBoxes.length=0;
+  }
+  function deleteBox(){
+    if(selectedBoxes.length===0) {
+      alert("No box selected to delete!");
+      return;
+    }
+    deleteAllSelected();
+  }
+
+  /********************************************************************
+   * Saving & Loading
+   ********************************************************************/
+   function saveBoxPositions() {
+    let data = allBoxes.map(box => ({
+        id: box.id,
+        name: box.dataset.name || box.id,
+        left: parseFloat(box.style.left) / formContainer.clientWidth * 1545,
+        top: parseFloat(box.style.top) / formContainer.clientHeight * 2000,
+        width: parseFloat(box.style.width) / formContainer.clientWidth * 1545,
+        height: parseFloat(box.style.height) / formContainer.clientHeight * 2000,
+        type: box.dataset.type || "text",
+        fontSize: (parseFloat(box.style.fontSize) || 18) / formContainer.clientWidth * 1545,
+        value: box.type === "checkbox" ? (box.checked ? "true" : "false") : box.value
+    }));
+
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "boxPositions-2.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    flashGreenAndDisableEditMode();
+}
+
+function saveBoxPositionsToLocalStorage() {
+    let data = allBoxes.map(box => ({
+        id: box.id,
+        name: box.dataset.name || box.id,
+        left: parseFloat(box.style.left) / formContainer.clientWidth * 1545,
+        top: parseFloat(box.style.top) / formContainer.clientHeight * 2000,
+        width: parseFloat(box.style.width) / formContainer.clientWidth * 1545,
+        height: parseFloat(box.style.height) / formContainer.clientHeight * 2000,
+        type: box.dataset.type || "text",
+        fontSize: (parseFloat(box.style.fontSize) || 18) / formContainer.clientWidth * 1545,
+        value: box.type === "checkbox" ? (box.checked ? "true" : "false") : box.value
+    }));
+
+    localStorage.setItem("boxPositions", JSON.stringify(data));
+
+    flashGreenAndDisableEditMode();
+}
+
+function flashGreenAndDisableEditMode() {
+    const controlpanel = document.getElementById("control-panel");
+
+    // ✅ Flash green
+    controlpanel.style.backgroundColor = "rgba(0, 255, 0, 0.3)";
+    controlpanel.style.border = "5px solid green";
+
+    // 🔄 Restore after 1 second and disable edit mode
+    setTimeout(() => {
+        controlpanel.style.backgroundColor = "transparent";
+        controlpanel.style.border = "1px solid #333";
+        toggleEditMode(); // ✅ Disable edit mode
+    }, 1000);
+}
+
+
+
+  function loadLayoutFromFile(e){
+    const file= e.target.files[0];
+    if(!file)return;
+    file.text().then(txt=>{
+      try {
+        const imported= JSON.parse(txt);
+        localStorage.setItem("boxPositions", txt);
+        loadBoxPositionsFromData(imported);
+        alert("Layout imported & saved to localStorage!");
+      } catch(err){
+        console.error("Error reading imported JSON:",err);
+        alert("Could not parse JSON. Check console.");
+      }
+    });
+  }
+
+  function downloadLayout(){
+    const data= localStorage.getItem("boxPositions");
+    if(!data) {
+      alert("No saved layout in localStorage to download.");
+      return;
+    }
+    const blob= new Blob([data], { type:"application/json" });
+    const url= URL.createObjectURL(blob);
+    const link= document.createElement("a");
+    link.href= url;
+    link.download= "boxPositions.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById("reset-default-btn").addEventListener("click",()=>{
+    localStorage.removeItem("boxPositions");
+    // reload default
+    loadBoxPositionsFromData(defaultLayout);
+    alert("Reset to default from boxPositions-2.json!");
+  });
+
+  /********************************************************************
+   * Reorder Modal
+   ********************************************************************/
+  function openReorderModal() {
+    reorderSelect.innerHTML="";
+    // skip first two special <option>
+    for(let i=2; i< boxSelector.options.length; i++){
+      const opt= boxSelector.options[i];
+      const newOpt= document.createElement("option");
+      newOpt.value= opt.value;
+      newOpt.textContent= opt.textContent;
+      reorderSelect.appendChild(newOpt);
+    }
+    overlay.style.display="block";
+    reorderModal.style.display="block";
+  }
+  function closeReorderModal(){
+    overlay.style.display="none";
+    reorderModal.style.display="none";
+  }
+  function moveReorderOptionUp(){
+    const idx= reorderSelect.selectedIndex;
+    if(idx<=0)return;
+    const opt= reorderSelect.options[idx];
+    reorderSelect.removeChild(opt);
+    reorderSelect.insertBefore(opt, reorderSelect.options[idx-1]);
+    reorderSelect.selectedIndex= idx-1;
+  }
+  function moveReorderOptionDown(){
+    const idx= reorderSelect.selectedIndex;
+    if(idx<0|| idx>= reorderSelect.options.length-1)return;
+    const opt= reorderSelect.options[idx];
+    reorderSelect.removeChild(opt);
+    reorderSelect.insertBefore(opt, reorderSelect.options[idx+1]?.nextSibling);
+    reorderSelect.selectedIndex= idx+1;
+  }
+  function applyReorderChanges(){
+    const firstOpt= boxSelector.options[0];
+    const secondOpt= boxSelector.options[1];
+    const newIds=[];
+    for(let i=0; i< reorderSelect.options.length; i++){
+      newIds.push(reorderSelect.options[i].value);
+    }
+    boxSelector.innerHTML="";
+    boxSelector.appendChild(firstOpt);
+    boxSelector.appendChild(secondOpt);
+
+    newIds.forEach(id=>{
+      const boxEl= document.getElementById(id);
+      if(!boxEl)return;
+      const opt= document.createElement("option");
+      opt.value= id;
+      opt.textContent= boxEl.dataset.name||id;
+      boxSelector.appendChild(opt);
+    });
+
+    // reorder allBoxes
+    const newOrder=[];
+    newIds.forEach(id=>{
+      const el= document.getElementById(id);
+      if(el) newOrder.push(el);
+    });
+
+    // We'll just replace allBoxes with newOrder
+    allBoxes.length=0;
+    allBoxes.push(...newOrder);
+
+    closeReorderModal();
+    // Save so reorder persists
+    saveBoxPositions();
+  }
+
+  /********************************************************************
+   * Basic Edit Mode
+   ********************************************************************/
+
+   function toggleEditMode() {
+    editMode = !editMode;
+
+    // ✅ Change button text
+    document.getElementById("toggle-edit-btn").textContent = 
+        editMode ? "Lock Boxes" : "Enable Edit Mode";
+
+    // ✅ Change border & background color based on edit mode
+    const controlpanel = document.getElementById("control-panel");
+    if (editMode) {
+      controlpanel.style.border = "5px solid red"; // Highlight border in edit mode
+      controlpanel.style.backgroundColor = "rgba(255, 0, 0, 0.1)"; // Light red background
+    } else {
+      controlpanel.style.border = "1px solid #333"; // Default border
+      controlpanel.style.backgroundColor = "transparent"; // Fully transparent
+    }
+}
+
+
+  /********************************************************************
+   * Changing Box Type, etc.
+   ********************************************************************/
+  boxTypeSelect.addEventListener("change",()=>{
+    if(!editMode)return;
+    const selId= boxSelector.value;
+    const box= document.getElementById(selId);
+    if(!box|| selId==="all-boxes"|| selId==="vin-boxes")return;
+
+    const newType= boxTypeSelect.value;
+    box.dataset.type= newType;
+
+    // If was VIN but changed => remove
+    if(vinBoxes.includes(box) && newType!=="vin"){
+      vinBoxes.splice(vinBoxes.indexOf(box),1);
+    }
+    // If now VIN => add
+    if(newType==="vin" && !vinBoxes.includes(box)){
+      vinBoxes.push(box);
+      initVinBoxInput(box);
+    }
+
+    // For actual input type
+    if(newType==="checkbox"){
+      box.type="checkbox";
+      box.value="";
+    } else {
+      box.type="text";
+    }
+  });
+
+  /********************************************************************
+   * Box Name, Position, Font Size
+   ********************************************************************/
+  boxNameInput.addEventListener("input",()=>{
+    if(!editMode)return;
+    const selId= boxSelector.value;
+    const box= document.getElementById(selId);
+    if(!box)return;
+    box.dataset.name= boxNameInput.value;
+    if(box.dataset.type==="vin"){
+      // re-sort if you want
+    }
+
+    // rename in boxSelector
+    const opt= boxSelector.querySelector(`option[value="${selId}"]`);
+    if(opt) opt.textContent= boxNameInput.value;
+  });
+
+  function selectBox(id){
+    boxSelector.value= id;
+    highlightBox(id);
+    const b= document.getElementById(id);
+    if(!b)return;
+    leftInput.value   = parseInt(b.style.left);
+    topInput.value    = parseInt(b.style.top);
+    widthInput.value  = parseInt(b.style.width);
+    heightInput.value = parseInt(b.style.height);
+    boxNameInput.value= b.dataset.name|| b.id;
+    boxTypeSelect.value= b.dataset.type|| "text";
+    fontSizeInput.value= parseInt(b.style.fontSize)||18;
+  }
+  function highlightBox(id){
+    allBoxes.forEach(b=> b.classList.remove("selected"));
+    const box= document.getElementById(id);
+    if(box) box.classList.add("selected");
+  }
+  function updateSizeInputs(){
+    const selId= boxSelector.value;
+    const b= document.getElementById(selId);
+    if(!b)return;
+    leftInput.value   = parseInt(b.style.left);
+    topInput.value    = parseInt(b.style.top);
+    widthInput.value  = parseInt(b.style.width);
+    heightInput.value = parseInt(b.style.height);
+    boxNameInput.value= b.dataset.name|| b.id;
+    boxTypeSelect.value= b.dataset.type|| "text";
+    fontSizeInput.value= parseInt(b.style.fontSize)||18;
+  }
+
+  /********************************************************************
+   * Move or Resize in Real-Time
+   ********************************************************************/
+  document.querySelectorAll("#left-input, #top-input, #width-input, #height-input, #move-left, #move-top")
+    .forEach(el=>{
+      el.addEventListener("input", applyChanges);
+    });
+
+  function applyChanges() {
+    let boxes=[];
+    if(selectedBoxes.length>0) {
+      boxes= selectedBoxes;
+    } else {
+      const val= boxSelector.value;
+      if(val==="vin-boxes") boxes= vinBoxes;
+      else if(val==="all-boxes")boxes= allBoxes;
+      else {
+        const b= document.getElementById(val);
+        if(b) boxes.push(b);
+      }
+    }
+
+    boxes.forEach(box=>{
+      if(toggleLeft.checked) {
+        const oldLeft= parseInt(box.style.left)||0;
+        box.style.left= (oldLeft + parseInt(moveLeft.value))+"px";
+      }
+      if(toggleTop.checked) {
+        const oldTop= parseInt(box.style.top)||0;
+        box.style.top= (oldTop + parseInt(moveTop.value))+"px";
+      }
+      if(widthInput.value) box.style.width= widthInput.value+"px";
+      if(heightInput.value)box.style.height=heightInput.value+"px";
+    });
+    moveLeft.value="0";
+    moveTop.value="0";
+  }
+
+  fontSizeInput.addEventListener("input",()=>{
+    if(!editMode)return;
+    const val= parseInt(fontSizeInput.value)||18;
+    if(selectedBoxes.length>0){
+      selectedBoxes.forEach(b=> b.style.fontSize= val+"px");
+    } else {
+      const selVal= boxSelector.value;
+      if(selVal!=="all-boxes" && selVal!=="vin-boxes"){
+        const b= document.getElementById(selVal);
+        if(b) b.style.fontSize= val+"px";
+      }
+    }
+  });
+
+  /********************************************************************
+   * Number / Currency formatting
+   ********************************************************************/
+  function attachFormattingListener(box) {
+    if(box.tagName!=="INPUT")return;
+    box.addEventListener("blur",()=>{
+      const t= box.dataset.type;
+      if(t==="number") formatNumberInput(box);
+      else if(t==="currency") formatCurrencyInput(box);
+    });
+  }
+  function formatNumberInput(box) {
+    const raw= box.value.replace(/\D/g,"");
+    const num= parseInt(raw,10);
+    if(isNaN(num)) { box.value=""; return; }
+    let str= num.toString();
+    str= str.replace(/\B(?=(\d{3})+(?!\d))/g," ");
+    box.value= str;
+  }
+  function formatCurrencyInput(box) {
+    const raw= box.value.replace(/\D/g,"");
+    const num= parseInt(raw,10);
+    if(isNaN(num)) { box.value=""; return; }
+    let str= num.toString();
+    str= str.replace(/\B(?=(\d{3})+(?!\d))/g,",");
+    box.value= str+"";
+  }
+
+  /********************************************************************
+   * Keyboard => move or resize
+   ********************************************************************/
+   document.addEventListener("keydown", (ev) => {
+    const idx = boxSelector.selectedIndex;
+    if (idx < 0) return;
+    const val = boxSelector.value;
+    const box = document.getElementById(val);
+    if (!box || val === "all-boxes" || val === "vin-boxes") return;
+
+    // If not in edit mode => navigate with arrow keys
+    if (!editMode) {
+        let newIndex = idx;
+        if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") {
+            newIndex = idx - 1;
+            if (newIndex < 2) newIndex = boxSelector.options.length - 1;
+        } else if (ev.key === "ArrowRight" || ev.key === "ArrowDown") {
+            newIndex = idx + 1;
+            if (newIndex >= boxSelector.options.length) newIndex = 2;
+        } else {
+            return;
+        }
+
+        boxSelector.selectedIndex = newIndex;
+        selectBox(boxSelector.value);
+        ev.preventDefault();
+
+        // ✅ Automatically focus the new box and start typing
+        setTimeout(() => {
+            const newBox = document.getElementById(boxSelector.value);
+            if (newBox) {
+                newBox.focus();
+                newBox.select(); // Select text inside to overwrite quickly
+            }
+        }, 50);
+        return;
+    }
+
+    // If in edit mode => move/resize
+    const isMac = navigator.platform.toUpperCase().includes("MAC");
+    const isCtrlOrAlt = isMac ? ev.altKey : ev.ctrlKey;
+
+    let moveStep = ev.shiftKey ? 10 : 1;
+    let resizeStep = isCtrlOrAlt && ev.shiftKey ? 10 : (isCtrlOrAlt ? 1 : 0);
+
+    let newLeft = parseFloat(box.style.left) || 0;
+    let newTop = parseFloat(box.style.top) || 0;
+    let newW = parseFloat(box.style.width) || 60;
+    let newH = parseFloat(box.style.height) || 30;
+
+    if (resizeStep > 0) {
+        if (ev.key === "ArrowLeft") newW = Math.max(10, newW - resizeStep);
+        else if (ev.key === "ArrowRight") newW += resizeStep;
+        else if (ev.key === "ArrowUp") newH = Math.max(10, newH - resizeStep);
+        else if (ev.key === "ArrowDown") newH += resizeStep;
+        else return;
+        box.style.width = newW + "px";
+        box.style.height = newH + "px";
+        widthInput.value = newW;
+        heightInput.value = newH;
+        ev.preventDefault();
+        return;
+    }
+
+    if (ev.key === "ArrowLeft") newLeft -= moveStep;
+    else if (ev.key === "ArrowRight") newLeft += moveStep;
+    else if (ev.key === "ArrowUp") newTop -= moveStep;
+    else if (ev.key === "ArrowDown") newTop += moveStep;
+    else return;
+
+    box.style.left = newLeft + "px";
+    box.style.top = newTop + "px";
+    leftInput.value = newLeft;
+    topInput.value = newTop;
+    ev.preventDefault();
+});
+
+  /********************************************************************
+   * PDF Download (requires local server or base64-embedded image)
+   ********************************************************************/
+async function downloadPDF() {
+    try {
+        const { PDFDocument, StandardFonts, rgb } = PDFLib;
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([1545, 2000]); // Force PDF to be 1545x2000
+
+        // Embed the background image at full size
+        const bgBytes = await fetch("AdesaForm.png").then(r => r.arrayBuffer());
+        const bgImg = await pdfDoc.embedPng(bgBytes);
+        page.drawImage(bgImg, { x: 0, y: 0, width: 1545, height: 2000 });
+
+        // Use a proper font
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+        // Loop through all input fields and place them correctly
+        allBoxes.forEach(box => {
+            let textValue = "";
+            if (box.tagName === "INPUT") {
+                if (box.dataset.type === "checkbox" && box.checked) {
+                    textValue = "X"; // Mark checkbox if checked
+                } else {
+                    textValue = box.value || "";
+                }
+            } else {
+                textValue = box.textContent || "";
+            }
+
+            // Get the actual position on screen (resized)
+            const htmlX = parseFloat(box.style.left) || 0;
+            const htmlY = parseFloat(box.style.top) || 0;
+            const bw = parseFloat(box.style.width) || 60;
+            const bh = parseFloat(box.style.height) || 30;
+            let pdfX = (htmlX / formContainer.clientWidth) * 1545;
+            let pdfY = 2000 - ((htmlY / formContainer.clientHeight) * 2000) - bh; // Flip Y-axis for PDF
+
+            let fontSize = (parseFloat(box.style.fontSize) || 14) * (1545 / formContainer.clientWidth);
+            let textWidth = font.widthOfTextAtSize(textValue, fontSize);
+            let textHeight = font.heightAtSize(fontSize);
+
+            // Ensure text fits within the box
+            while (textWidth > bw && fontSize > 4) {
+                fontSize -= 0.5;
+                textWidth = font.widthOfTextAtSize(textValue, fontSize);
+                textHeight = font.heightAtSize(fontSize);
+            }
+
+            let offsetX = (bw - textWidth) / 2;
+            let offsetY = (bh - textHeight) / 2;
+            pdfX += offsetX;
+            pdfY += offsetY;
+
+            // Draw the text on the PDF
+            page.drawText(textValue, {
+                x: pdfX,
+                y: pdfY,
+                size: fontSize,
+                font,
+                color: rgb(0, 0, 0)
+            });
         });
 
-        async function generatePDF() {
-            if (!pdfDoc) {
-                alert("Please upload a PDF first.");
-                return;
-            }
-            const { PDFDocument } = PDFLib;
-            let newPdf = await PDFDocument.create();
-            let copiedPage = await newPdf.copyPages(pdfDoc, [0]);
-            let page = copiedPage[0];
-            newPdf.addPage(page);
-            let vinX = parseInt(vinDiv.style.left) || 50;
-            let vinY = canvas.height - (parseInt(vinDiv.style.top) || 200);
-            let bidX = parseInt(bidDiv.style.left) || 300;
-            let bidY = canvas.height - (parseInt(bidDiv.style.top) || 400);
-            page.drawText(vinDiv.innerText, { x: vinX, y: vinY, size: 16 });
-            page.drawText(bidDiv.innerText, { x: bidX, y: bidY, size: 16 });
-            const pdfBytes = await newPdf.save();
-            let blob = new Blob([pdfBytes], { type: "application/pdf" });
-            let link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "Adesa_filled.pdf";
-            link.click();
-        }
-    </script>
+        // Save and download the PDF
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "FilledForm.pdf";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error("PDF generation error:", err);
+        alert("Error generating PDF. Check console for details.");
+    }
+}
+  
+</script>
 </body>
 </html>
